@@ -1,0 +1,98 @@
+Avg Booking Value = DIVIDE([Total Booking Value],[Total Bookings],BLANK())
+
+Avg. Trip Distance = 
+Var AvgMiles = ROUND(AVERAGE('Trip Details'[trip_distance]),0)
+RETURN CONCATENATE(AvgMiles," miles")
+
+Avg. Trip Time = 
+Var AvgTime = AVERAGEX(
+                            'Trip Details', DATEDIFF('Trip Details'[Pickup Time],'Trip Details'[Drop Off Time],
+                            MINUTE)
+                            )
+RETURN CONCATENATE(FORMAT(AvgTime,"0")," min")
+
+Farthest Trip = 
+Var MaxDistance = MAX('Trip Details'[trip_distance])
+Var PickupLocation = 
+    LOOKUPVALUE(
+        'Location Table'[Location],
+        'Location Table'[LocationID],
+        CALCULATE(
+            SELECTEDVALUE('Trip Details'[PULocationID]),
+            'Trip Details'[trip_distance] = MaxDistance
+        )
+    )
+Var DropoffLocation = 
+    LOOKUPVALUE(
+        'Location Table'[Location],
+        'Location Table'[LocationID],
+        CALCULATE(
+            SELECTEDVALUE('Trip Details'[DOLocationID]),
+            'Trip Details'[trip_distance] = MaxDistance
+        )
+    )
+RETURN
+    "Pickup: " & PickupLocation & "→ Drop-off: " & DropoffLocation & " (" & FORMAT(MaxDistance, "0.0") & " miles)" 
+
+Most Frequent Dropoff Point = 
+Var DropoffCounts = 
+                    ADDCOLUMNS(
+                        SUMMARIZE('Trip Details',
+                        'Location Table'[Location]
+                        ),
+                        "DropOffCount",
+                        CALCULATE(
+                            COUNT('Trip Details'[Trip ID]),
+                            USERELATIONSHIP('Trip Details'[DOLocationID],'Location Table'[LocationID])
+                        )
+                    )
+Var RankedDropoffs = 
+    ADDCOLUMNS(
+        DropoffCounts,
+        "Rank",
+        RANKX(DropoffCounts,[DropOffCount],,DESC,Dense)
+    )
+Var TopDropoff = 
+    FILTER(RankedDropoffs,[Rank]=1)
+Return 
+    CONCATENATEX(TopDropoff,'Location Table'[Location],", ")
+
+Most Frequent Pickup Point = 
+Var PickPoint = TOPN(1, 
+                        SUMMARIZE(
+                            'Trip Details', 'Location Table'[Location], "Pickup Point", COUNT('Trip Details'[Trip ID])
+                        ),
+                        [Pickup Point],DESC)
+RETURN CONCATENATEX(PickPoint, 'Location Table'[Location], ",")
+
+Pickup Date = DATE(YEAR('Trip Details'[Pickup Time]),MONTH('Trip Details'[Pickup Time]),DAY('Trip Details'[Pickup Time]))
+
+Pickup Hour = HOUR('Trip Details'[Pickup Time])
+
+Pickup Hour (HH MM SS) = TIME(HOUR('Trip Details'[Pickup Time]),MINUTE('Trip Details'[Pickup Time]),SECOND('Trip Details'[Pickup Time]))
+
+Title for Bookings by Day Name = SELECTEDVALUE('Dynamic Measure'[Dynamic Title]) & " by Day"
+
+Title for Grid = "Vehicle Type Analysis"
+
+Title for Hour & Day = SELECTEDVALUE('Dynamic Measure'[Dynamic Title]) & " by Hour & Day"
+
+Title for Location = "Location Type Analysis"
+
+Title for Pickup Time = SELECTEDVALUE('Dynamic Measure'[Dynamic Title]) & " by Pickup Time"
+
+Total Booking Value = SUM('Trip Details'[fare_amount])+ SUM('Trip Details'[Surge Fee])
+
+Total Bookings = COUNT('Trip Details'[Trip ID])
+
+Total Trip Distance = 
+Var TotalMiles = SUM('Trip Details'[trip_distance])/1000
+RETURN 
+CONCATENATE(FORMAT(TotalMiles,"0"),"K miles")         
+
+Total Trip Distance Measure = SUM('Trip Details'[trip_distance])
+
+Trip (Day/Night) = 
+Var HourofDay = HOUR('Trip Details'[Pickup Time])
+RETURN
+IF(HourofDay>=17 || HourofDay<6,"Night Trip","Day Trip")           
